@@ -11,15 +11,35 @@ export interface NodeResult {
     y?: number;
 }
 
+export interface NodeData {
+    id: string;
+    x: number | null;
+    y: number | null;
+    pressure_base: number;
+    pressure_closed: number;
+    drop: number;
+    status: string;
+}
+
+export interface LinkData {
+    id: string;
+    start_node: string;
+    end_node: string;
+    start_x: number | null;
+    start_y: number | null;
+    end_x: number | null;
+    end_y: number | null;
+    status: string;
+}
+
 export interface AnalysisResult {
     usedTime: number;
     meanPressureBase: number;
     meanPressureClosed: number;
     meanDrop: number;
     topImpactedNodes: NodeResult[];
-    allNodes: NodeResult[];
-    pressureMapsImage: string; // base64
-    impactMapImage: string; // base64
+    nodes: NodeData[];
+    links: LinkData[];
     csvData: string;
 }
 

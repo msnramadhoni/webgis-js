@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { AnalysisResult } from '../types';
+import NetworkMap from './NetworkMap';
 
 interface ResultsPanelProps {
     result: AnalysisResult | null;
@@ -7,7 +8,7 @@ interface ResultsPanelProps {
 }
 
 export default function ResultsPanel({ result, loading }: ResultsPanelProps) {
-    const [selectedView, setSelectedView] = useState<'pressure' | 'impact' | null>(null);
+    const [selectedView, setSelectedView] = useState<'pressure' | 'impact' | 'drop' | null>(null);
 
     if (!result && !loading) {
         return (
@@ -84,7 +85,7 @@ export default function ResultsPanel({ result, loading }: ResultsPanelProps) {
                             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                                 <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
                             </svg>
-                            Pressure Maps
+                            Pressure Map
                         </button>
                         <button
                             onClick={() => setSelectedView('impact')}
@@ -94,6 +95,15 @@ export default function ResultsPanel({ result, loading }: ResultsPanelProps) {
                                 <path fillRule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 0l-2 2a1 1 0 101.414 1.414L8 10.414l1.293 1.293a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                             </svg>
                             Impact Map
+                        </button>
+                        <button
+                            onClick={() => setSelectedView('drop')}
+                            className="btn-secondary flex items-center gap-2"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+                            </svg>
+                            Pressure Drop
                         </button>
                         <button
                             onClick={downloadCSV}
@@ -128,9 +138,9 @@ export default function ResultsPanel({ result, loading }: ResultsPanelProps) {
                                         <td className="py-2 px-3 text-gray-300">{node.drop_m.toFixed(1)} m</td>
                                         <td className="py-2 px-3">
                                             <span className={`px-2 py-1 rounded text-xs font-medium ${node.status === 'OK' ? 'bg-green-500/20 text-green-300' :
-                                                    node.status === 'RENDAH' ? 'bg-yellow-500/20 text-yellow-300' :
-                                                        node.status === 'SANGAT RENDAH' ? 'bg-orange-500/20 text-orange-300' :
-                                                            'bg-red-500/20 text-red-300'
+                                                node.status === 'RENDAH' ? 'bg-yellow-500/20 text-yellow-300' :
+                                                    node.status === 'SANGAT RENDAH' ? 'bg-orange-500/20 text-orange-300' :
+                                                        'bg-red-500/20 text-red-300'
                                                 }`}>
                                                 {node.status}
                                             </span>
@@ -145,10 +155,11 @@ export default function ResultsPanel({ result, loading }: ResultsPanelProps) {
                 {/* Visualization Modal */}
                 {selectedView && (
                     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-fade-in" onClick={() => setSelectedView(null)}>
-                        <div className="glass-card max-w-6xl w-full p-6" onClick={(e) => e.stopPropagation()}>
+                        <div className="glass-card max-w-6xl w-full h-[85vh] flex flex-col p-6" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-between mb-4">
                                 <h3 className="text-xl font-semibold">
-                                    {selectedView === 'pressure' ? 'Pressure Analysis Maps' : 'Service Impact Map'}
+                                    {selectedView === 'pressure' ? 'Pressure Analysis Map' :
+                                        selectedView === 'impact' ? 'Service Impact Map' : 'Pressure Drop Map'}
                                 </h3>
                                 <button onClick={() => setSelectedView(null)} className="text-gray-400 hover:text-white">
                                     <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
@@ -156,11 +167,13 @@ export default function ResultsPanel({ result, loading }: ResultsPanelProps) {
                                     </svg>
                                 </button>
                             </div>
-                            <div className="bg-black/30 rounded-lg p-4">
-                                <img
-                                    src={selectedView === 'pressure' ? result.pressureMapsImage : result.impactMapImage}
-                                    alt={selectedView === 'pressure' ? 'Pressure Maps' : 'Impact Map'}
-                                    className="w-full h-auto rounded"
+                            <div className="flex-1 bg-black/20 rounded-lg overflow-hidden">
+                                <NetworkMap
+                                    nodes={result.nodes}
+                                    links={result.links}
+                                    type={selectedView}
+                                    title={selectedView === 'pressure' ? 'Current Pressure (m)' :
+                                        selectedView === 'impact' ? 'Service Status' : 'Pressure Drop (m)'}
                                 />
                             </div>
                         </div>

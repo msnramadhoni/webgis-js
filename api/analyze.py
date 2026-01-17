@@ -7,9 +7,6 @@ import os
 from pathlib import Path
 
 # Import WNTR and dependencies
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 import pandas as pd
 import wntr
 
@@ -41,16 +38,6 @@ def run_pressure_at_time(wn, time_sec):
     p_clean[p_clean < 0] = 0
     
     return p_raw, p_clean, used_time
-
-def fig_to_base64(fig):
-    """Convert matplotlib figure to base64 string"""
-    buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=200, bbox_inches='tight')
-    buf.seek(0)
-    img_base64 = base64.b64encode(buf.read()).decode('utf-8')
-    buf.close()
-    plt.close(fig)
-    return f"data:image/png;base64,{img_base64}"
 
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
@@ -121,69 +108,50 @@ class handler(BaseHTTPRequestHandler):
                     lambda x: service_status(x, ok_bar_min, very_low_max)
                 )
                 
-                # Add coordinates
-                coords = []
+                # Extract Network Data for Frontend Visualization
+                nodes_data = []
                 for node_id in df["node_id"]:
                     node = wn_closed.get_node(node_id)
+                    node_row = df[df["node_id"] == node_id].iloc[0]
+                    
+                    coord = {"x": None, "y": None}
                     if hasattr(node, "coordinates") and node.coordinates:
-                        coords.append({"x": node.coordinates[0], "y": node.coordinates[1]})
-                    else:
-                        coords.append({"x": None, "y": None})
+                        coord = {"x": node.coordinates[0], "y": node.coordinates[1]}
+                    
+                    nodes_data.append({
+                        "id": node_id,
+                        "x": coord["x"],
+                        "y": coord["y"],
+                        "pressure_base": float(node_row["pressure_base_m"]),
+                        "pressure_closed": float(node_row["pressure_closed_m"]),
+                        "drop": float(node_row["drop_m"]),
+                        "status": node_row["status"]
+                    })
                 
-                df["x"] = [c["x"] for c in coords]
-                df["y"] = [c["y"] for c in coords]
-                
-                # Generate pressure maps
-                fig1, axes = plt.subplots(1, 3, figsize=(18, 5))
-                
-                wntr.graphics.plot_network(
-                    wn_base, p_base_clean, node_size=20,
-                    title=f"Pressure BASE (t={used_time}s)",
-                    show_plot=False, ax=axes[0]
-                )
-                
-                wntr.graphics.plot_network(
-                    wn_closed, p_closed_clean, node_size=20,
-                    title=f"Pressure CLOSED '{pipe_to_close}' (t={used_time}s)",
-                    show_plot=False, ax=axes[1]
-                )
-                
-                wntr.graphics.plot_network(
-                    wn_closed, dp_m, node_size=20,
-                    title="ΔPressure = BASE - CLOSED",
-                    show_plot=False, ax=axes[2]
-                )
-                
-                plt.tight_layout()
-                pressure_maps_base64 = fig_to_base64(fig1)
-                
-                # Generate service impact map
-                fig2, ax = plt.subplots(figsize=(10, 7))
-                
-                wntr.graphics.plot_network(
-                    wn_closed, node_attribute=None, node_size=0,
-                    title=f"Service Impact Map AFTER closing '{pipe_to_close}'",
-                    show_plot=False, ax=ax
-                )
-                
-                color_map = {
-                    "MATI TOTAL": "red",
-                    "SANGAT RENDAH": "orange",
-                    "RENDAH": "yellow",
-                    "OK": "green"
-                }
-                
-                for status, color in color_map.items():
-                    sub = df[df["status"] == status]
-                    if len(sub) > 0:
-                        ax.scatter(sub["x"], sub["y"], s=18, c=color, label=status, zorder=5)
-                
-                ax.legend(loc="best")
-                ax.set_xticks([])
-                ax.set_yticks([])
-                plt.tight_layout()
-                
-                impact_map_base64 = fig_to_base64(fig2)
+                links_data = []
+                for link_name in wn_closed.link_name_list:
+                    link = wn_closed.get_link(link_name)
+                    start_node = wn_closed.get_node(link.start_node_name)
+                    end_node = wn_closed.get_node(link.end_node_name)
+                    
+                    start_coord = {"x": None, "y": None}
+                    if hasattr(start_node, "coordinates") and start_node.coordinates:
+                        start_coord = {"x": start_node.coordinates[0], "y": start_node.coordinates[1]}
+                        
+                    end_coord = {"x": None, "y": None}
+                    if hasattr(end_node, "coordinates") and end_node.coordinates:
+                        end_coord = {"x": end_node.coordinates[0], "y": end_node.coordinates[1]}
+                    
+                    links_data.append({
+                        "id": link_name,
+                        "start_node": link.start_node_name,
+                        "end_node": link.end_node_name,
+                        "start_x": start_coord["x"],
+                        "start_y": start_coord["y"],
+                        "end_x": end_coord["x"],
+                        "end_y": end_coord["y"],
+                        "status": str(link.initial_status)
+                    })
                 
                 # Prepare response
                 top_impacted = df.nlargest(top_n, "drop_m")
@@ -196,9 +164,8 @@ class handler(BaseHTTPRequestHandler):
                         "meanPressureClosed": float(p_closed_clean.mean()),
                         "meanDrop": float(dp_m.mean()),
                         "topImpactedNodes": top_impacted.to_dict("records"),
-                        "allNodes": df.to_dict("records"),
-                        "pressureMapsImage": pressure_maps_base64,
-                        "impactMapImage": impact_map_base64,
+                        "nodes": nodes_data,
+                        "links": links_data,
                         "csvData": df.to_csv(index=False)
                     }
                 }
