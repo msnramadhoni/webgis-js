@@ -1,6 +1,6 @@
 # Water Network Analyzer
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/yourusername/web-wntr-js)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/msnramadhoni/web-wntr-js)
 
 Modern static web application for water network analysis using WNTR (Water Network Tool for Resilience). Built with React, TypeScript, and deployed on Vercel with Python serverless functions.
 
